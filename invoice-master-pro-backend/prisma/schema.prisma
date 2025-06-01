@@ -1,0 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      Role     @default(STAFF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orgId     String?
+  organization Organization? @relation(fields: [orgId], references: [id])
+  notifications Notification[]
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  logoUrl   String?
+  settings  Json?    // Store settings like theme, etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  clients   Client[]
+  products  Product[]
+  invoices  Invoice[]
+  estimates Estimate[]
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id])
+  name      String
+  email     String   @unique
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  invoices  Invoice[]
+  estimates Estimate[]
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id])
+  name        String
+  description String?
+  unitPrice   Float
+  tax         Float?   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  invoiceItems InvoiceItem[]
+}
+
+model Invoice {
+  id          String   @id @default(cuid())
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id])
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  invoiceNumber String   @unique // Consider adding orgId to make it unique per org
+  status      InvoiceStatus @default(DRAFT)
+  total       Float
+  issueDate   DateTime @default(now())
+  dueDate     DateTime
+  notes       String?
+  terms       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       InvoiceItem[]
+  payments    Payment[]
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  productId   String?  // Optional: Link to a product/service
+  product     Product? @relation(fields: [productId], references: [id])
+  description String   // Description of the item (can override product description)
+  quantity    Int
+  unitPrice   Float    // Price per unit (can override product price)
+  tax         Float?   @default(0)
+  total       Float    // quantity * unitPrice * (1 + tax)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Estimate {
+  id          String   @id @default(cuid())
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id])
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  estimateNumber String  @unique // Consider adding orgId to make it unique per org
+  status      EstimateStatus @default(DRAFT)
+  total       Float
+  issueDate   DateTime @default(now())
+  expiryDate  DateTime?
+  notes       String?
+  terms       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // Add EstimateItems similar to InvoiceItems if needed
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  method    String   // e.g., 'manual', 'stripe', 'paypal'
+  amount    Float
+  status    PaymentStatus @default(COMPLETED)
+  paymentDate DateTime @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  type      String   // e.g., 'invoice_paid', 'estimate_approved', 'reminder'
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  ACCOUNTANT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum EstimateStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  REJECTED
+  INVOICED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+

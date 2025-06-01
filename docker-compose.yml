@@ -1,0 +1,55 @@
+version: '3.8'
+
+
+services:
+  frontend:
+    build:
+      context: ./invoice-master-pro-frontend
+      args:
+        REACT_APP_API_URL: /api
+    container_name: invoicemaster_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - invoicemaster_network
+
+  backend:
+    build:
+      context: ./invoice-master-pro-backend
+    container_name: invoicemaster_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:mysecretpassword@db:5432/invoicedb?schema=public
+      JWT_SECRET: supersecret123
+      PORT: 3000
+    volumes:
+      - ./invoice-master-pro-backend/tmp:/app/tmp
+    depends_on:
+      - db
+    networks:
+      - invoicemaster_network
+
+  db:
+    image: postgres:15-alpine
+    container_name: invoicemaster_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: invoicedb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mysecretpassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - invoicemaster_network
+
+networks:
+  invoicemaster_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
